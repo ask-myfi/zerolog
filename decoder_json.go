@@ -6,15 +6,20 @@ import (
 	"io"
 )
 
-func getValues(buf []byte, key ...string) (map[string][]interface{}, error) {
-	if len(key) == 0 {
-		return nil, nil
-	}
+func getDecoder(buf []byte) *json.Decoder {
 	decoder := json.NewDecoder(bytes.NewReader(buf))
 	decoder.UseNumber()
+	return decoder
+}
+
+func decodeKeyValues(buf []byte, all bool, key ...string) (map[string][]interface{}, error) {
+	if !all && len(key) == 0 {
+		return nil, nil
+	}
+	dec := getDecoder(buf)
 	kv := make(map[string][]interface{})
 	for {
-		token, err := decoder.Token()
+		token, err := dec.Token()
 		if err == io.EOF {
 			return kv, nil
 		}
@@ -22,18 +27,25 @@ func getValues(buf []byte, key ...string) (map[string][]interface{}, error) {
 		if !ok {
 			continue
 		}
-		for _, k := range key {
-			if t != k {
+		if !all {
+			var found bool
+			for _, k := range key {
+				if t != k {
+					continue
+				}
+				found = true
+			}
+			if !found {
 				continue
 			}
-			var val interface{}
-			if err := decoder.Decode(&val); err != nil {
-				return nil, err
-			}
-			if _, ok := kv[k]; !ok {
-				kv[k] = make([]interface{}, 0)
-			}
-			kv[k] = append(kv[k], val)
 		}
+		var val interface{}
+		if err := dec.Decode(&val); err != nil {
+			return nil, err
+		}
+		if _, ok := kv[t]; !ok {
+			kv[t] = make([]interface{}, 0)
+		}
+		kv[t] = append(kv[t], val)
 	}
 }

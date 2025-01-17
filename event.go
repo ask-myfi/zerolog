@@ -829,11 +829,20 @@ func (e *Event) MACAddr(key string, ha net.HardwareAddr) *Event {
 	return e
 }
 
-// GetValues returns the values list for the specified keys in the log.
+// GetKeyValues returns the values list for the specified keys in the log.
 // Specially created for accessing key value pairs while handling hooks.
 func (e *Event) GetValues(key ...string) (map[string][]interface{}, error) {
 	if e == nil || len(e.buf) == 0 {
 		return nil, nil
 	}
-	return getValues(e.buf, key...)
+	return decodeKeyValues(e.buf, false, key...)
+}
+
+// GetAllKeyValues returns the all key values list specified keys in the log.
+// Specially created for accessing key value pairs while handling hooks.
+func (e *Event) GetAllKeyValues() (map[string][]interface{}, error) {
+	if e == nil || len(e.buf) == 0 {
+		return nil, nil
+	}
+	return decodeKeyValues(e.buf, true)
 }
