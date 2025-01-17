@@ -1,3 +1,4 @@
+//go:build !binary_log
 // +build !binary_log
 
 package zerolog
@@ -7,7 +8,8 @@ package zerolog
 
 import (
 	"encoding/base64"
-	"github.com/rs/zerolog/internal/json"
+
+	"github.com/ask-myfi/zerolog/internal/json"
 )
 
 var (

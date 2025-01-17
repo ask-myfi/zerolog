@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/rs/zerolog"
+	"github.com/ask-myfi/zerolog"
 )
 
 func isInputFromPipe() bool {

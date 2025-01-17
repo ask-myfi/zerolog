@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/rs/zerolog/internal/cbor"
+	"github.com/ask-myfi/zerolog/internal/cbor"
 )
 
 func TestCtx(t *testing.T) {
