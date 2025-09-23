@@ -849,17 +849,23 @@ func (e *Event) GetValues(key ...string) (map[string][]interface{}, error) {
 
 // GetAllKeyValues returns the all key values list specified keys in the log.
 // Specially created for accessing key value pairs while handling hooks.
-func (e *Event) GetAllKeyValues(patternConfigs []PatternConf) (map[string][]interface{}, error) {
+func (e *Event) GetAllKeyValues() (map[string][]interface{}, error) {
 	if e == nil || len(e.buf) == 0 {
 		return nil, nil
 	}
-	e.maskSensitiveData(patternConfigs)
 	return decodeKeyValues(e.buf, true)
 }
 
-func (e *Event) maskSensitiveData(patternConfs []PatternConf) {
+func (e *Event) MaskSensitiveData(patternConfs []PatternConf) {
 	for _, cfg := range patternConfs {
-		re := regexp.MustCompile(cfg.Match)
+		if cfg.Match == "" {
+			continue
+		}
+		re, err := regexp.Compile(cfg.Match)
+		if err != nil {
+			fmt.Printf("error %v compiling regex for %s\n", err, cfg.Match)
+			continue
+		}
 		masked := re.ReplaceAllStringFunc(string(e.buf), func(text string) string {
 			textLen := len(text)
 
@@ -869,7 +875,9 @@ func (e *Event) maskSensitiveData(patternConfs []PatternConf) {
 			if cfg.End <= 0 || cfg.End >= textLen || cfg.End < cfg.Start {
 				cfg.End = textLen - 1
 			}
-
+			if cfg.Mask == "" {
+				cfg.Mask = "X"
+			}
 			maskLen := cfg.End - cfg.Start + 1
 			maskedPart := strings.Repeat(cfg.Mask, maskLen)
 			return text[:cfg.Start] + maskedPart + text[cfg.End+1:]
