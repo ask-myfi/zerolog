@@ -5,9 +5,15 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"runtime"
 	"sync"
 	"time"
+)
+
+const (
+	panPattern = "(?i)[A-Z]{5}[0-9]{4}[A-Z]"
+	panMask    = "XXXXXX"
 )
 
 var eventPool = &sync.Pool{
@@ -844,5 +850,17 @@ func (e *Event) GetAllKeyValues() (map[string][]interface{}, error) {
 	if e == nil || len(e.buf) == 0 {
 		return nil, nil
 	}
+	e.maskPAN()
 	return decodeKeyValues(e.buf, true)
 }
+
+func (e *Event)maskPAN() {
+	re := regexp.MustCompile(panPattern)
+	masked := re.ReplaceAllStringFunc(string(e.buf), func(pan string) string {
+		if len(pan) == 10 {
+			return panMask + pan[6:]
+		}
+		return pan
+	})
+	e.buf = []byte(masked)
+}	
