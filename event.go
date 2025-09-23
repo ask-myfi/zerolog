@@ -7,14 +7,17 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
 
-const (
-	panPattern = "(?i)[A-Z]{5}[0-9]{4}[A-Z]"
-	panMask    = "XXXXXX"
-)
+type PatternConf struct {
+	Match string `json:"match"`
+	Mask  string `json:"mask"`
+	Start int    `json:"start"`
+	End   int    `json:"end"`
+}
 
 var eventPool = &sync.Pool{
 	New: func() interface{} {
@@ -846,21 +849,31 @@ func (e *Event) GetValues(key ...string) (map[string][]interface{}, error) {
 
 // GetAllKeyValues returns the all key values list specified keys in the log.
 // Specially created for accessing key value pairs while handling hooks.
-func (e *Event) GetAllKeyValues() (map[string][]interface{}, error) {
+func (e *Event) GetAllKeyValues(patternConfigs []PatternConf) (map[string][]interface{}, error) {
 	if e == nil || len(e.buf) == 0 {
 		return nil, nil
 	}
-	e.maskPAN()
+	e.maskSensitiveData(patternConfigs)
 	return decodeKeyValues(e.buf, true)
 }
 
-func (e *Event)maskPAN() {
-	re := regexp.MustCompile(panPattern)
-	masked := re.ReplaceAllStringFunc(string(e.buf), func(pan string) string {
-		if len(pan) == 10 {
-			return panMask + pan[6:]
-		}
-		return pan
-	})
-	e.buf = []byte(masked)
-}	
+func (e *Event) maskSensitiveData(patternConfs []PatternConf) {
+	for _, cfg := range patternConfs {
+		re := regexp.MustCompile(cfg.Match)
+		masked := re.ReplaceAllStringFunc(string(e.buf), func(text string) string {
+			textLen := len(text)
+
+			if cfg.Start < 0 || cfg.Start >= textLen {
+				cfg.Start = 0
+			}
+			if cfg.End <= 0 || cfg.End >= textLen || cfg.End < cfg.Start {
+				cfg.End = textLen - 1
+			}
+
+			maskLen := cfg.End - cfg.Start + 1
+			maskedPart := strings.Repeat(cfg.Mask, maskLen)
+			return text[:cfg.Start] + maskedPart + text[cfg.End+1:]
+		})
+		e.buf = []byte(masked)
+	}
+}
