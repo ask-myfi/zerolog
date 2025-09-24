@@ -857,6 +857,9 @@ func (e *Event) GetAllKeyValues() (map[string][]interface{}, error) {
 }
 
 func (e *Event) MaskSensitiveData(patternConfs []PatternConf) {
+	if e == nil || len(e.buf) == 0 || len(patternConfs) == 0 {
+		return
+	}
 	for _, cfg := range patternConfs {
 		if cfg.Match == "" {
 			continue
