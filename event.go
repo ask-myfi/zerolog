@@ -5,10 +5,19 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
+
+type PatternConf struct {
+	Match string `json:"match"`
+	Mask  string `json:"mask"`
+	Start int    `json:"start"`
+	End   int    `json:"end"`
+}
 
 var eventPool = &sync.Pool{
 	New: func() interface{} {
@@ -845,4 +854,37 @@ func (e *Event) GetAllKeyValues() (map[string][]interface{}, error) {
 		return nil, nil
 	}
 	return decodeKeyValues(e.buf, true)
+}
+
+func (e *Event) MaskSensitiveData(patternConfs []PatternConf) {
+	if e == nil || len(e.buf) == 0 || len(patternConfs) == 0 {
+		return
+	}
+	for _, cfg := range patternConfs {
+		if cfg.Match == "" {
+			continue
+		}
+		re, err := regexp.Compile(cfg.Match)
+		if err != nil {
+			fmt.Printf("error %v compiling regex for %s\n", err, cfg.Match)
+			continue
+		}
+		masked := re.ReplaceAllStringFunc(string(e.buf), func(text string) string {
+			textLen := len(text)
+
+			if cfg.Start < 0 || cfg.Start >= textLen {
+				cfg.Start = 0
+			}
+			if cfg.End <= 0 || cfg.End >= textLen || cfg.End < cfg.Start {
+				cfg.End = textLen - 1
+			}
+			if cfg.Mask == "" {
+				cfg.Mask = "X"
+			}
+			maskLen := cfg.End - cfg.Start + 1
+			maskedPart := strings.Repeat(cfg.Mask, maskLen)
+			return text[:cfg.Start] + maskedPart + text[cfg.End+1:]
+		})
+		e.buf = []byte(masked)
+	}
 }
